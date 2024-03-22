@@ -54,15 +54,20 @@ class Solver(object):
 
         return acc, cm
 
-    def test(self, train=True):
+    def test(self, train=True):  # ldj - stopped printing confusion matrix
+        # added training accuracy
+        
+        train = True    # ldj   - don't know where train is set to False
         if train:
             acc, cm = self.test_dataset(self.train_loader)
-            print(f"Train acc: {acc:.2%}\nTrain Confusion Matrix:")
-            print(cm)
+            # print(f"Train acc: {acc:.2%}\nTrain Confusion Matrix:")
+            # print(cm)
+            print(f"Train acc: {acc:.2%}" ) 
 
         acc, cm = self.test_dataset(self.test_loader)
-        print(f"Test acc: {acc:.2%}\nTest Confusion Matrix:")
-        print(cm)
+        # print(f"Test acc: {acc:.2%}\nTest Confusion Matrix:")
+        # print(cm)
+        print(f"Test acc: {acc:.2%}" ) 
 
         return acc
 
