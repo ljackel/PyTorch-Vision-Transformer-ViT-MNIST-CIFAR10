@@ -1,10 +1,33 @@
 import torch
 import torch.nn as nn
+from torch.utils.data import Dataset, DataLoader
 import os
 from torch import optim
 from model import VisionTransformer
 from sklearn.metrics import confusion_matrix, accuracy_score
 from data_loader import get_loader
+from termcolor import colored
+
+
+class Augmented_Data(Dataset):
+    """
+    Augmented_Data is a class that is used to create a dataset from the
+    augmented data.  It is used to create the training and test datasets
+    for the neural networks.
+    """
+
+    def __init__(self, data, targets):
+        self.data = data
+        self.targets = targets
+
+    # This returns the total amount of samples in our dataset
+    def __len__(self):
+        return len(self.targets)
+
+    # This returns given an index to the i-th sample and label
+    def __getitem__(self, idx):
+        return self.data[idx], self.targets[idx]
+
 
 class Solver(object):
     def __init__(self, args):
@@ -12,23 +35,58 @@ class Solver(object):
 
         self.train_loader, self.test_loader = get_loader(args)
 
-        self.model = VisionTransformer(n_channels=self.args.n_channels, embed_dim=self.args.embed_dim, 
-                                        n_layers=self.args.n_layers, n_attention_heads=self.args.n_attention_heads, 
-                                        forward_mul=self.args.forward_mul, image_size=self.args.image_size, 
-                                        patch_size=self.args.patch_size, n_classes=self.args.n_classes)
-        
+        # ------ added by ldj
+        self.train_set = self.train_loader.dataset
+        self.test_set = self.test_loader.dataset
+        # reduce the size of the training set
+        self.train_data = self.train_set.data[: self.args.num_examples]
+        self.train_labels = self.train_set.targets[: self.args.num_examples]
+        # add channel dimension
+        self.train_data = self.train_data.unsqueeze(1)
+        self.test_data = self.test_set.data.unsqueeze(1)
+
+        # convert to float
+        self.train_data = self.train_data.float()
+        self.test_data = self.test_data.float()
+        self.train_set = Augmented_Data(self.train_data, self.train_labels)
+        self.test_set = Augmented_Data(self.test_data, self.test_set.targets)
+        self.train_loader = DataLoader(
+            self.train_set, batch_size=args.batch_size, shuffle=True
+        )
+        self.test_loader = DataLoader(
+            self.test_set, batch_size=args.batch_size, shuffle=False
+        )
+        # print(f"Train data shape: {self.train_data.shape}, Train labels shape: {self.train_labels.shape}")
+        # print(f"Test data shape: {self.test_data.shape}, Test labels shape: {self.test_set.targets.shape}")
+        # print(train_set.data[0])
+
+        # ---------
+
+        self.model = VisionTransformer(
+            n_channels=self.args.n_channels,
+            embed_dim=self.args.embed_dim,
+            n_layers=self.args.n_layers,
+            n_attention_heads=self.args.n_attention_heads,
+            forward_mul=self.args.forward_mul,
+            image_size=self.args.image_size,
+            patch_size=self.args.patch_size,
+            n_classes=self.args.n_classes,
+        )
+
         if self.args.is_cuda:
             print("Using GPU")
             self.model = self.model.cuda()
         else:
             print("Cuda not available.")
 
-        print('--------Network--------')
-        print(self.model)
+        # print('--------Network--------')
+        # print(self.model)
 
         if args.load_model:
             print("Using pretrained model")
-            self.model.load_state_dict(torch.load(os.path.join(self.args.model_path, 'ViT_model.pt')))
+            self.model.load_state_dict(
+                torch.load(os.path.join(self.args.model_path, "ViT_model.pt"))
+            )
 
         self.ce = nn.CrossEntropyLoss()
 
@@ -38,7 +96,7 @@ class Solver(object):
         actual = []
         pred = []
 
-        for (x, y) in loader:
+        for x, y in loader:
             if self.args.is_cuda:
                 x = x.cuda()
 
@@ -50,35 +108,55 @@ class Solver(object):
             pred += predicted.tolist()
 
         acc = accuracy_score(y_true=actual, y_pred=pred)
-        cm = confusion_matrix(y_true=actual, y_pred=pred, labels=range(self.args.n_classes))
+        cm = confusion_matrix(
+            y_true=actual, y_pred=pred, labels=range(self.args.n_classes)
+        )
 
         return acc, cm
 
     def test(self, train=True):  # ldj - stopped printing confusion matrix
         # added training accuracy
-        
-        train = True    # ldj   - don't know where train is set to False
+
+        train = True  # ldj   - don't know where train is set to False
         if train:
             acc, cm = self.test_dataset(self.train_loader)
-            # print(f"Train acc: {acc:.2%}\nTrain Confusion Matrix:")
-            # print(cm)
-            print(f"Train acc: {acc:.2%}" ) 
+            print(f"Train acc: {acc:.2%}\nTrain Confusion Matrix:")
+            print(cm)
+            print(f"    Train acc: {acc:.2%}", end="")
 
         acc, cm = self.test_dataset(self.test_loader)
-        # print(f"Test acc: {acc:.2%}\nTest Confusion Matrix:")
-        # print(cm)
-        print(f"Test acc: {acc:.2%}" ) 
+        print(f"Test acc: {acc:.2%}\nTest Confusion Matrix:")
+        print(cm)
+        print(f"   Test acc: {acc:.2%}", end="")
 
         return acc
 
     def train(self):
         iter_per_epoch = len(self.train_loader)
 
-        optimizer = optim.AdamW(self.model.parameters(), lr=self.args.lr, weight_decay=1e-3)
-        linear_warmup = optim.lr_scheduler.LinearLR(optimizer, start_factor=1/self.args.warmup_epochs, end_factor=1.0, total_iters=self.args.warmup_epochs, last_epoch=-1, verbose=True)
-        cos_decay = optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=self.args.epochs-self.args.warmup_epochs, eta_min=1e-5, verbose=True)
+        optimizer = optim.AdamW(
+            self.model.parameters(), lr=self.args.lr, weight_decay=1e-3
+        )
+        linear_warmup = optim.lr_scheduler.LinearLR(
+            optimizer,
+            start_factor=1 / self.args.warmup_epochs,
+            end_factor=1.0,
+            total_iters=self.args.warmup_epochs,
+            last_epoch=-1,
+            # verbose=True,
+            verbose=False,
+        )
+        cos_decay = optim.lr_scheduler.CosineAnnealingLR(
+            optimizer=optimizer,
+            T_max=self.args.epochs - self.args.warmup_epochs,
+            eta_min=1e-5,
+            # verbose=True,
+            verbose=False,
+        )
 
         best_acc = 0
+
+        # the training loop
         for epoch in range(self.args.epochs):
 
             self.model.train()
@@ -94,15 +172,27 @@ class Solver(object):
                 loss.backward()
                 optimizer.step()
 
-                if i % 50 == 0 or i == (iter_per_epoch - 1):
-                    print(f'Ep: {epoch+1}/{self.args.epochs}, It: {i+1}/{iter_per_epoch}, loss: {loss:.4f}')
-
-            test_acc = self.test(train=((epoch+1)%25==0)) # Test training set every 25 epochs
+                # if i % 50 == 0 or i == (iter_per_epoch - 1):
+                #     print(f'Ep: {epoch+1}/{self.args.epochs}, It: {i+1}/{iter_per_epoch}, loss: {loss:.4f}')
+            print("epoch:", epoch + 1, end="")
+            print(f"   loss: {loss:.4f}", end="")
+            test_acc = self.test(
+                train=((epoch + 1) % 25 == 0)
+            )  # Test training set every 25 epochs
+            # test_acc, cm = self.test_dataset(self.test_loader)
+            if test_acc > best_acc:
+                color = 'red'    
+            else:
+                color = 'white'
             best_acc = max(test_acc, best_acc)
-            print(f"Best test acc: {best_acc:.2%}\n")
+            # print(colored(f"Test error: {100 * (1-test_acc):.2f}", color))
+            print(colored(f"   Best test acc: {best_acc:.2%}", color))
 
-            torch.save(self.model.state_dict(), os.path.join(self.args.model_path, "ViT_model.pt"))
-            
+            torch.save(
+                self.model.state_dict(),
+                os.path.join(self.args.model_path, "ViT_model.pt"),
+            )
+
             if epoch < self.args.warmup_epochs:
                 linear_warmup.step()
             else:
