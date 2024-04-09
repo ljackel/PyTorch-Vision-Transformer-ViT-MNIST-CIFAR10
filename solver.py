@@ -5,63 +5,94 @@ import os
 from torch import optim
 from model import VisionTransformer
 from sklearn.metrics import confusion_matrix, accuracy_score
-from data_loader import get_loader
 from termcolor import colored
+from torchvision import datasets, transforms
 use_less_data = True
 
+from PIL import Image
+import matplotlib.pyplot as plt
+plt.rcParams["savefig.bbox"] = 'tight'
+from helpers import plot
 
-class Augmented_Data(Dataset):
-    """
-    Augmented_Data is a class that is used to create a dataset from the
-    augmented data.  It is used to create the training and test datasets
-    for the neural networks.
-    """
+from typing import Any, Callable, Optional, List, Tuple
 
-    def __init__(self, data, targets):
-        self.data = data
-        self.targets = targets
+# class Augmented_Data(Dataset):
+#     """
+#     Augmented_Data is a class that is used to create a dataset from the
+#     augmented data.  It is used to create the training and test datasets
+#     for the neural networks.
+#     """
 
-    # This returns the total amount of samples in our dataset
-    def __len__(self):
-        return len(self.targets)
+#     def __init__(self, data, targets, transform: Optional[Callable] = None
+#         ):
+#         self.data = data
+#         self.targets = targets
 
-    # This returns given an index to the i-th sample and label
-    def __getitem__(self, idx):
-        return self.data[idx], self.targets[idx]
+#         self.transform = transform
 
+#     # This returns the total amount of samples in our dataset
+#     def __len__(self):
+#         return len(self.targets)
+
+#     # This returns given an index to the i-th sample and label
+#     def __getitem__(self, idx):
+#         img, target = self.data[idx], int(self.targets[idx])
+
+#         # doing this so that it is consistent with all other datasets
+#         # to return a PIL Image
+#         img = Image.fromarray(img.numpy(), mode="L")
+
+#         if self.transform is not None:
+#             img = self.transform(img)
+
+#         return img, target
+
+
+def get_loader(args):
+    train_transform = transforms.Compose([transforms.RandomCrop(args.image_size, padding=2, padding_mode='edge'), 
+                                    transforms.ToTensor(), 
+                                    transforms.Normalize([0.5], [0.5])])
+    train = datasets.MNIST(os.path.join(args.data_path, args.dataset), train=True, download=True, transform=train_transform)
+
+    test_transform = transforms.Compose([transforms.Resize([args.image_size, args.image_size]), transforms.ToTensor(), transforms.Normalize([0.5], [0.5])])
+    test = datasets.MNIST(os.path.join(args.data_path, args.dataset), train=False, download=True, transform=test_transform)
+
+
+    train_loader = torch.utils.data.DataLoader(dataset=train,
+                                                batch_size=args.batch_size,
+                                                shuffle=True,
+                                                num_workers=args.num_workers,
+                                                drop_last=True)
+
+    test_loader = torch.utils.data.DataLoader(dataset=test,
+                                                batch_size=args.batch_size * 2,
+                                                shuffle=False,
+                                                num_workers=args.num_workers,
+                                                drop_last=False)
+
+    return train_loader, test_loader
 
 class Solver(object):
     def __init__(self, args):
         self.args = args
 
+        #self.train_loader, self.test_loader, self.transform = get_loader(args)
         self.train_loader, self.test_loader = get_loader(args)
 
         # ------ added by ldj
-        
+        use_less_data = True
         if use_less_data:
-            self.train_set = self.train_loader.dataset
-            self.test_set = self.test_loader.dataset
             # reduce the size of the training set
-            self.train_data = self.train_set.data[: self.args.num_examples]
-            self.train_labels = self.train_set.targets[: self.args.num_examples]
-            # add channel dimension
-            self.train_data = self.train_data.unsqueeze(1)
-            self.test_data = self.test_set.data.unsqueeze(1)
+#            self.train_data = self.train_set.data[: self.args.num_examples]
+            self.train_loader.dataset.data = self.train_loader.dataset.data[: self.args.num_examples]
+            #plot(self.train_data[0].cpu())
+#            self.train_labels = self.train_set.targets[: self.args.num_examples]
+            self.train_loader.dataset.targets = self.train_loader.dataset.targets[: self.args.num_examples]
 
-            # convert to float
-            self.train_data = self.train_data.float()
-            self.test_data = self.test_data.float()
-            self.train_set = Augmented_Data(self.train_data, self.train_labels)
-            self.test_set = Augmented_Data(self.test_data, self.test_set.targets)
-            self.train_loader = DataLoader(
-                self.train_set, batch_size=args.batch_size, shuffle=True
-            )
-            self.test_loader = DataLoader(
-                self.test_set, batch_size=args.batch_size, shuffle=False
-        )
-        # print(f"Train data shape: {self.train_data.shape}, Train labels shape: {self.train_labels.shape}")
-        # print(f"Test data shape: {self.test_data.shape}, Test labels shape: {self.test_set.targets.shape}")
-        # print(train_set.data[0])
+            # self.train_set = Augmented_Data(self.train_data, self.train_labels, transform=self.transform)
+            # self.train_loader = DataLoader(
+            #     self.train_loader.dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers
+            # )
 
         # ---------
 
@@ -165,6 +196,10 @@ class Solver(object):
             self.model.train()
 
             for i, (x, y) in enumerate(self.train_loader):
+                # breakpoint()
+                # plot([x[0], x[1]])
+                # print(y)
+                # plt.show()
                 if self.args.is_cuda:
                     x, y = x.cuda(), y.cuda()
 
