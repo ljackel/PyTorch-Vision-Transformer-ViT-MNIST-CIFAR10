@@ -6,6 +6,9 @@ works with python 3.11.5('anaconda':conda)
 
 """
 
+# results depend on whether we use my code or the original code
+# need to check the test data is the same
+
 import argparse
 import datetime
 import os

@@ -35,32 +35,32 @@ class Solver(object):
 
         self.train_loader, self.test_loader = get_loader(args)
 
-        # ------ added by ldj
-        self.train_set = self.train_loader.dataset
-        self.test_set = self.test_loader.dataset
-        # reduce the size of the training set
-        self.train_data = self.train_set.data[: self.args.num_examples]
-        self.train_labels = self.train_set.targets[: self.args.num_examples]
-        # add channel dimension
-        self.train_data = self.train_data.unsqueeze(1)
-        self.test_data = self.test_set.data.unsqueeze(1)
+        # # ------ added by ldj
+        # self.train_set = self.train_loader.dataset
+        # self.test_set = self.test_loader.dataset
+        # # reduce the size of the training set
+        # self.train_data = self.train_set.data[: self.args.num_examples]
+        # self.train_labels = self.train_set.targets[: self.args.num_examples]
+        # # add channel dimension
+        # self.train_data = self.train_data.unsqueeze(1)
+        # self.test_data = self.test_set.data.unsqueeze(1)
 
-        # convert to float
-        self.train_data = self.train_data.float()
-        self.test_data = self.test_data.float()
-        self.train_set = Augmented_Data(self.train_data, self.train_labels)
-        self.test_set = Augmented_Data(self.test_data, self.test_set.targets)
-        self.train_loader = DataLoader(
-            self.train_set, batch_size=args.batch_size, shuffle=True
-        )
-        self.test_loader = DataLoader(
-            self.test_set, batch_size=args.batch_size, shuffle=False
-        )
-        # print(f"Train data shape: {self.train_data.shape}, Train labels shape: {self.train_labels.shape}")
-        # print(f"Test data shape: {self.test_data.shape}, Test labels shape: {self.test_set.targets.shape}")
-        # print(train_set.data[0])
+        # # convert to float
+        # self.train_data = self.train_data.float()
+        # self.test_data = self.test_data.float()
+        # self.train_set = Augmented_Data(self.train_data, self.train_labels)
+        # self.test_set = Augmented_Data(self.test_data, self.test_set.targets)
+        # self.train_loader = DataLoader(
+        #     self.train_set, batch_size=args.batch_size, shuffle=True
+        # )
+        # self.test_loader = DataLoader(
+        #     self.test_set, batch_size=args.batch_size, shuffle=False
+        # )
+        # # print(f"Train data shape: {self.train_data.shape}, Train labels shape: {self.train_labels.shape}")
+        # # print(f"Test data shape: {self.test_data.shape}, Test labels shape: {self.test_set.targets.shape}")
+        # # print(train_set.data[0])
 
-        # ---------
+        # # ---------
 
         self.model = VisionTransformer(
             n_channels=self.args.n_channels,
