@@ -48,11 +48,11 @@ if __name__ == "__main__":
     # Training Arguments
     parser.add_argument("--epochs", type=int, default=200)
     parser.add_argument("--warmup_epochs", type=int, default=10)
-    parser.add_argument("--batch_size", type=int, default=256)
+    parser.add_argument("--batch_size", type=int, default=6)
     # parser.add_argument('--batch_size', type=int, default=32)
 
     parser.add_argument("--n_classes", type=int, default=10)
-    parser.add_argument("--num_workers", type=int, default=4)
+    parser.add_argument("--num_workers", type=int, default=1)
     parser.add_argument("--lr", type=float, default=5e-4)
 
     # Data arguments
@@ -60,7 +60,7 @@ if __name__ == "__main__":
         "--dataset",
         type=str,
         default="mnist",
-        help=["mnist", "fmnist", "svhn", "cifar10"],
+        # help=["mnist", "fmnist", "svhn", "cifar10"],
     )
     parser.add_argument("--image_size", type=int, default=28, help="Image size")
     parser.add_argument("--patch_size", type=int, default=4, help="Patch Size")
@@ -69,7 +69,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--num_examples",
         type=int,
-        default=60000,
+        default=[1280,2560,5120,10240, 20480, 60000],
         help="Number of examples to use for training",
     )
 

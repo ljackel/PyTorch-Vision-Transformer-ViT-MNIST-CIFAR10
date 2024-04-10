@@ -80,14 +80,16 @@ class Solver(object):
         self.train_loader, self.test_loader = get_loader(args)
 
         # ------ added by ldj
-        use_less_data = True
-        if use_less_data:
+        # for i in self.args.num_examples:
+        #     print("i=", i)
+        #     current_num_examples = i
             # reduce the size of the training set
 #            self.train_data = self.train_set.data[: self.args.num_examples]
-            self.train_loader.dataset.data = self.train_loader.dataset.data[: self.args.num_examples]
+            # self.train_loader.dataset.data = self.train_loader.dataset.data[: current_num_examples]
             #plot(self.train_data[0].cpu())
 #            self.train_labels = self.train_set.targets[: self.args.num_examples]
-            self.train_loader.dataset.targets = self.train_loader.dataset.targets[: self.args.num_examples]
+            # self.train_loader.dataset.targets = self.train_loader.dataset.targets[: self.args.num_examples]
+            # self.train_loader.dataset.targets = self.train_loader.dataset.targets[: current_num_examples]
 
             # self.train_set = Augmented_Data(self.train_data, self.train_labels, transform=self.transform)
             # self.train_loader = DataLoader(
@@ -166,72 +168,78 @@ class Solver(object):
         return acc
 
     def train(self):
-        iter_per_epoch = len(self.train_loader)
+        for i in self.args.num_examples:
+            
+            current_num_examples = i
+            print("current_num_examples=", current_num_examples)
+            self.train_loader.dataset.targets = self.train_loader.dataset.targets[: current_num_examples]
+            self.train_loader.dataset.data = self.train_loader.dataset.data[: current_num_examples]
+            iter_per_epoch = len(self.train_loader)
 
-        optimizer = optim.AdamW(
-            self.model.parameters(), lr=self.args.lr, weight_decay=1e-3
-        )
-        linear_warmup = optim.lr_scheduler.LinearLR(
-            optimizer,
-            start_factor=1 / self.args.warmup_epochs,
-            end_factor=1.0,
-            total_iters=self.args.warmup_epochs,
-            last_epoch=-1,
-            # verbose=True,
-            verbose=False,
-        )
-        cos_decay = optim.lr_scheduler.CosineAnnealingLR(
-            optimizer=optimizer,
-            T_max=self.args.epochs - self.args.warmup_epochs,
-            eta_min=1e-5,
-            # verbose=True,
-            verbose=False,
-        )
+            optimizer = optim.AdamW(
+                self.model.parameters(), lr=self.args.lr, weight_decay=1e-3
+            )
+            linear_warmup = optim.lr_scheduler.LinearLR(
+                optimizer,
+                start_factor=1 / self.args.warmup_epochs,
+                end_factor=1.0,
+                total_iters=self.args.warmup_epochs,
+                last_epoch=-1,
+                # verbose=True,
+                verbose=False,
+            )
+            cos_decay = optim.lr_scheduler.CosineAnnealingLR(
+                optimizer=optimizer,
+                T_max=self.args.epochs - self.args.warmup_epochs,
+                eta_min=1e-5,
+                # verbose=True,
+                verbose=False,
+            )
 
-        best_acc = 0
+            best_acc = 0
 
-        # the training loop
-        for epoch in range(self.args.epochs):
+            # the training loop
+            for epoch in range(self.args.epochs):
 
-            self.model.train()
+                self.model.train()
 
-            for i, (x, y) in enumerate(self.train_loader):
-                # breakpoint()
-                # plot([x[0], x[1]])
-                # print(y)
-                # plt.show()
-                if self.args.is_cuda:
-                    x, y = x.cuda(), y.cuda()
+                for i, (x, y) in enumerate(self.train_loader):
+                    # breakpoint()
+                    # plot([x[0], x[1]])
+                    # print(y)
+                    # plt.show()
+                    if self.args.is_cuda:
+                        x, y = x.cuda(), y.cuda()
 
-                logits = self.model(x)
-                loss = self.ce(logits, y)
+                    logits = self.model(x)
+                    loss = self.ce(logits, y)
 
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
+                    optimizer.zero_grad()
+                    loss.backward()
+                    optimizer.step()
 
                 # if i % 50 == 0 or i == (iter_per_epoch - 1):
                 #     print(f'Ep: {epoch+1}/{self.args.epochs}, It: {i+1}/{iter_per_epoch}, loss: {loss:.4f}')
-            print("epoch:", epoch + 1, end="")
-            print(f"   loss: {loss:.4f}", end="")
-            test_acc = self.test(
-                train=((epoch + 1) % 25 == 0)
-            )  # Test training set every 25 epochs
-            # test_acc, cm = self.test_dataset(self.test_loader)
-            if test_acc > best_acc:
-                color = 'red'    
-            else:
-                color = 'white'
-            best_acc = max(test_acc, best_acc)
-            # print(colored(f"Test error: {100 * (1-test_acc):.2f}", color))
-            print(colored(f"   Best test acc: {best_acc:.2%}", color))
+                print("epoch:", epoch + 1, end="")
+                print(f"   loss: {loss:.4f}", end="")
+                test_acc = self.test(
+                    train=((epoch + 1) % 25 == 0)
+                )  # Test training set every 25 epochs
+                # test_acc, cm = self.test_dataset(self.test_loader)
+                if test_acc > best_acc:
+                    color = 'red'    
+                else:
+                    color = 'white'
+                best_acc = max(test_acc, best_acc)
+                # print(colored(f"Test error: {100 * (1-test_acc):.2f}", color))
+                print(colored(f"   Best test acc: {best_acc:.2%}", color))
 
-            torch.save(
-                self.model.state_dict(),
-                os.path.join(self.args.model_path, "ViT_model.pt"),
-            )
+                torch.save(
+                    self.model.state_dict(),
+                    os.path.join(self.args.model_path, "ViT_model.pt"),
+                )
 
-            if epoch < self.args.warmup_epochs:
-                linear_warmup.step()
-            else:
-                cos_decay.step()
+                if epoch < self.args.warmup_epochs:
+                    linear_warmup.step()
+                else:
+                    cos_decay.step()
