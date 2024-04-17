@@ -23,7 +23,6 @@ def main(args):
 
 
     for current_num_examples in args.num_examples:
-        # print("current_num_examples=", current_num_examples)
         solver = Solver(args)
         solver.train(current_num_examples)
         solver.test(train=True)

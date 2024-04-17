@@ -199,7 +199,6 @@ class Solver(object):
 
         # the training loop
         for epoch in range(self.args.epochs):
-
             self.model.train()
 
             for i, (x, y) in enumerate(self.train_loader):
