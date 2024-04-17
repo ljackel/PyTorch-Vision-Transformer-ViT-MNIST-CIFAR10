@@ -18,14 +18,15 @@ torch.manual_seed(0)
 torch.backends.cudnn.deterministic = True
 
 
-
-
 def main(args):
     os.makedirs(args.model_path, exist_ok=True)
 
-    solver = Solver(args)
-    solver.train()
-    solver.test(train=True)
+
+    for current_num_examples in args.num_examples:
+        # print("current_num_examples=", current_num_examples)
+        solver = Solver(args)
+        solver.train(current_num_examples)
+        solver.test(train=True)
 
 
 def print_args(args):
@@ -46,7 +47,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Vision Transformer for MNIST")
 
     # Training Arguments
-    parser.add_argument("--epochs", type=int, default=200)
+    parser.add_argument("--epochs", type=int, default=5)
     parser.add_argument("--warmup_epochs", type=int, default=10)
     parser.add_argument("--batch_size", type=int, default=6)
     # parser.add_argument('--batch_size', type=int, default=32)
